@@ -46,8 +46,8 @@ bin/pq +libm5cshim_legacy.so
 bin/slpd +liblog.so
 bin/thermal_manager +liblog.so
 bin/volte_imcb +liblog.so
-bin/volte_stack +liblog.so
-bin/volte_ua +liblog.so
+bin/volte_stack +liblog.so +libm5cshim_legacy.so
+bin/volte_ua +liblog.so +libm5cshim_legacy.so
 bin/wmt_loader +liblog.so
 lib64/egl/libGLES_mali.so libui.so=libm5cshim_region.so +libutilscallstack.so
 lib64/hw/audio.primary.mt6737m.so libtinycompress.so=libm5cshim_tinycompress.so +libm5cshim_legacy.so
@@ -208,3 +208,6 @@ lib/libui_ext.so +libm5cshim_camera.so +libm5cshim_legacy.so
 lib/libvcodecdrv.so +libm5cshim_legacy.so
 lib/libvfb_render.so +libm5cshim_camera.so
 lib/libvmp_render.so +libm5cshim_camera.so
+lib/libmal_datamngr.so +libm5cshim_legacy.so
+lib64/libmal_datamngr.so +libm5cshim_legacy.so
+lib/libmal_rilproxy.so +libm5cshim_legacy.so

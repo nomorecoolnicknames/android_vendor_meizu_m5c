@@ -30,6 +30,14 @@
 #
 # Refuses to write anything unless exactly these 16 strings carry
 # "android6Parcel", and checks the result.
+#
+# 2026-10-16 (candidate, VoLTE): the same box for the 32-bit
+# lib/libmal_rilproxy.so of the stock M MAL (mtkmal, a 32-bit daemon).  It
+# imports 9 android::Parcel methods (PARCEL32 below; FACT, nm -D) and keeps
+# its Parcels on the stack inside 4 KiB buffers or builds them through these
+# imports only (Ghidra, rild-mal command thread FUN_0001c15c and request writer
+# FUN_0001a9f4).  The profile is chosen by the ELF class and must match the
+# blob's Parcel strings exactly; the 64-bit librilmtk output is unchanged.
 import struct
 import subprocess
 import sys
@@ -55,18 +63,50 @@ PARCEL = [
 ]
 
 
-def dynstr(d):
-    """(offset, size) of .dynstr in a 64-bit little-endian ELF."""
-    if d[:4] != b"\x7fELF" or d[4] != 2 or d[5] != 1:
-        sys.exit("not a 64-bit little-endian ELF")
-    shoff, = struct.unpack_from("<Q", d, 0x28)
-    shentsize, shnum, shstrndx = struct.unpack_from("<HHH", d, 0x3A)
-    names, = struct.unpack_from("<Q", d, shoff + shstrndx * shentsize + 0x18)
+# The 9 imports of the 32-bit lib/libmal_rilproxy.so (size_t mangles as j).
+PARCEL32 = [
+    b"_ZN7android6Parcel10writeInt32Ei",
+    b"_ZN7android6Parcel13writeString16EPKDsj",
+    b"_ZN7android6Parcel7setDataEPKhj",
+    b"_ZN7android6ParcelC1Ev",
+    b"_ZN7android6ParcelD1Ev",
+    b"_ZNK7android6Parcel19readString16InplaceEPj",
+    b"_ZNK7android6Parcel4dataEv",
+    b"_ZNK7android6Parcel8dataSizeEv",
+    b"_ZNK7android6Parcel9readInt32EPi",
+]
+
+
+def elfclass(d):
+    """64 or 32 for a little-endian ELF, else exit."""
+    if d[:4] != b"\x7fELF" or d[5] != 1 or d[4] not in (1, 2):
+        sys.exit("not a little-endian ELF32/ELF64")
+    return 64 if d[4] == 2 else 32
+
+
+def sections(d):
+    """[(name offset, type, file offset, size, link)] of every section header."""
+    if elfclass(d) == 64:
+        shoff, = struct.unpack_from("<Q", d, 0x28)
+        shentsize, shnum, shstrndx = struct.unpack_from("<HHH", d, 0x3A)
+        fmt = "<IIQQQQIIQQ"
+    else:
+        shoff, = struct.unpack_from("<I", d, 0x20)
+        shentsize, shnum, shstrndx = struct.unpack_from("<HHH", d, 0x2E)
+        fmt = "<IIIIIIIIII"
+    out = []
     for i in range(shnum):
-        o = shoff + i * shentsize
-        n, = struct.unpack_from("<I", d, o)
+        f = struct.unpack_from(fmt, d, shoff + i * shentsize)
+        out.append((f[0], f[1], f[4], f[5], f[6]))
+    return out, shstrndx
+
+
+def dynstr(d):
+    """(offset, size) of .dynstr in a little-endian ELF32/ELF64."""
+    secs, shstrndx = sections(d)
+    names = secs[shstrndx][2]
+    for n, _, off, size, _ in secs:
         if d[names + n:d.index(b"\0", names + n)] == b".dynstr":
-            off, size = struct.unpack_from("<QQ", d, o + 0x18)
             return off, size
     sys.exit("no .dynstr")
 
@@ -84,35 +124,36 @@ def strings_with(d, off, size, needle):
 
 def dynamic(d):
     """(DT_NEEDED list, names of undefined GLOBAL/WEAK .dynsym entries) of a
-    64-bit little-endian ELF.  Pure Python on purpose, as blob-elf-wire.py:
+    little-endian ELF32/ELF64.  Pure Python on purpose, as blob-elf-wire.py:
     inside the build `readelf` is not an allowed PATH tool (it is missing from
     build/soong/ui/build/paths/config.go, the interposer fails the rule with
     "Disallowed PATH tool"; set 28-volte, 2026-09-30 17:33)."""
-    shoff, = struct.unpack_from("<Q", d, 0x28)
-    shentsize, shnum = struct.unpack_from("<HH", d, 0x3A)
-    secs = []
-    for i in range(shnum):
-        f = struct.unpack_from("<IIQQQQIIQQ", d, shoff + i * shentsize)
-        secs.append(dict(type=f[1], off=f[4], size=f[5], link=f[6]))
+    is64 = elfclass(d) == 64
+    secs, _ = sections(d)
 
     def cstr(sec, o):
-        s = secs[sec]["off"] + o
+        s = secs[sec][2] + o
         return d[s:d.index(b"\0", s)].decode()
 
     needed, und = [], []
-    for s in secs:
-        if s["type"] == 6:                                  # SHT_DYNAMIC
-            for o in range(s["off"], s["off"] + s["size"], 16):
-                tag, val = struct.unpack_from("<qQ", d, o)
+    for _, typ, off, size, link in secs:
+        if typ == 6:                                        # SHT_DYNAMIC
+            step, fmt = (16, "<qQ") if is64 else (8, "<iI")
+            for o in range(off, off + size, step):
+                tag, val = struct.unpack_from(fmt, d, o)
                 if tag == 0:
                     break
                 if tag == 1:                                # DT_NEEDED
-                    needed.append(cstr(s["link"], val))
-        elif s["type"] == 11:                               # SHT_DYNSYM
-            for o in range(s["off"] + 24, s["off"] + s["size"], 24):
-                name, info, _, shndx = struct.unpack_from("<IBBH", d, o)
+                    needed.append(cstr(link, val))
+        elif typ == 11:                                     # SHT_DYNSYM
+            step = 24 if is64 else 16
+            for o in range(off + step, off + size, step):
+                if is64:
+                    name, info, _, shndx = struct.unpack_from("<IBBH", d, o)
+                else:
+                    name, _, _, info, _, shndx = struct.unpack_from("<IIIBBH", d, o)
                 if shndx == 0 and name and (info >> 4) in (1, 2):   # UND, GLOBAL/WEAK
-                    und.append(cstr(s["link"], name))
+                    und.append(cstr(link, name))
     return needed, und
 
 
@@ -123,9 +164,10 @@ def main(argv):
     d = bytearray(open(src, "rb").read())
     off, size = dynstr(d)
     found = strings_with(d, off, size, b"android6Parcel")
-    if sorted(s for _, s in found) != sorted(PARCEL):
+    want = PARCEL if elfclass(d) == 64 else PARCEL32
+    if sorted(s for _, s in found) != sorted(want):
         sys.exit(f"{src}: android6Parcel strings are {sorted(s for _, s in found)}, "
-                 "expected the 16 of this rule - the blob is not the one it was written for")
+                 f"expected the {len(want)} of this rule - the blob is not the one it was written for")
     for pos, s in found:
         i = pos + s.index(b"6Parcel")
         d[i:i + 7] = b"6Pbrcel"
@@ -136,7 +178,7 @@ def main(argv):
     needed, und = dynamic(open(dst, "rb").read())
     boxed = [s for s in und if "6Pbrcel" in s]
     left = [s for s in und if "6Parcel" in s]
-    if len(boxed) != len(PARCEL) or left or SHIM.decode() not in needed:
+    if len(boxed) != len(want) or left or SHIM.decode() not in needed:
         sys.exit(f"{dst}: after boxing {len(boxed)} Pbrcel imports, {len(left)} Parcel "
                  f"imports left, shim in NEEDED: {SHIM.decode() in needed}")
 

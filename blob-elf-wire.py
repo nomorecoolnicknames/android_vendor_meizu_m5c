@@ -31,7 +31,14 @@ ADD = {
     "libm5cshim_legacy.so": lambda s: s in (
         "__xlog_buf_printf", "android_memset16",
         "_ZN7android15PermissionCache22checkCallingPermissionERKNS_8String16E",
-        "__pthread_gettid"),
+        "__pthread_gettid",
+        # 2026-10-16 (candidate, VoLTE): the 32-bit MAL data manager
+        # lib/libmal_datamngr.so imports the N-era libnetutils DHCP client
+        # (dlopen by mtkmal: "cannot locate symbol dhcp_start", the entity
+        # never loads and rild's getImsParamInfo waits forever); bin/volte_stack
+        # and bin/volte_ua import bzero@LIBC / bcopy@LIBC, which the A13 32-bit
+        # libc keeps only at LIBC_PRIVATE ("CANNOT LINK EXECUTABLE").
+        "dhcp_start", "dhcp_get_results", "bzero", "bcopy"),
     "libutilscallstack.so": lambda s: s.startswith(("_ZN7android9CallStack",
                                                     "_ZNK7android9CallStack")),
     # BoringSSL has no SSLv3 methods (device/meizu/m5c/treble/ssl.cpp).
@@ -103,9 +110,17 @@ SENSOR_COMPAT = frozenset((
 # GraphicBuffer blocks, and a Thread::run without a name that Android 13
 # aborts on; newpad.cpp) come in with it.  It imports no operator new itself,
 # so the rule is by path alone.
+# 2026-10-16 (candidate, VoLTE): the 32-bit lib/libmal_rilproxy.so (MAL's RIL
+# proxy entity, loaded by mtkmal) imports the libcutils jstring helpers
+# strdup8to16/strndup16to8 that A13 dropped ("cannot locate symbol
+# strdup8to16").  librilmtk/librilmtkmd2 import them too but resolve them
+# through libril, so the rule is restricted to the rilproxy path.  Several
+# rules per soname; a path rule is OR-ed with the soname's ADD predicate.
+JSTRING = frozenset(("strdup8to16", "strndup16to8", "strnlen16to8", "strncpy16to8"))
 ADD_PATH = {
-    "libm5cshim_newpad.so": (re.compile(r"^lib(64)?/(hw/camera\.mt6737m|libMtkOmxVenc|libcam_platform)\.so$"),
-                             lambda s: True),
+    "libm5cshim_newpad.so": [(re.compile(r"^lib(64)?/(hw/camera\.mt6737m|libMtkOmxVenc|libcam_platform)\.so$"),
+                              lambda s: True)],
+    "libm5cshim_legacy.so": [(re.compile(r"^lib/libmal_rilproxy\.so$"), lambda s: s in JSTRING)],
 }
 # (old, new, path regex, symbols new must supply, symbols that forbid it)
 # libm5cshim_region.so exports exactly the Region calls libGLES_mali makes
@@ -199,7 +214,11 @@ def derive(rel, needed, und):
             rep.append((old, new))
     after = [dict(rep).get(n, n) for n in needed]
     rules = dict(ADD, **ADD_BIN) if rel.startswith("bin/") else dict(ADD)
-    rules.update({so: has for so, (where, has) in ADD_PATH.items() if where.search(rel)})
+    for so, paths in ADD_PATH.items():
+        for where, has in paths:
+            if where.search(rel):
+                base = rules.get(so)
+                rules[so] = (lambda s, b=base, h=has: h(s) or (b is not None and b(s)))
     add = sorted(so for so, has in rules.items()
                  if so not in after and any(has(s) for s in und))
     return rep, add

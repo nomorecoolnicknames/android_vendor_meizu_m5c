@@ -155,13 +155,21 @@ M5C_ELF_WIRED := $(shell sed -n 's/^\([^#[:space:]][^[:space:]]*\).*/\1/p' $(M5C
 M5C_TREBLE_RELS :=
 M5C_TREBLE_PATCHED :=
 
+# 2026-10-16 (candidate, VoLTE): ELFs whose Marshmallow android::Parcel imports are
+# boxed (blob-parcel-box.py, android::Pbrcel of libm5cshim_nparcel) between
+# the copy and the DT_NEEDED wiring.  lib/libmal_rilproxy.so: MAL's RIL proxy
+# entity, 9 Parcel imports; unboxed it does not even load on A13 (strdup8to16)
+# and its Parcels would be the Marshmallow size.  Installed as-is, no strip.
+M5C_PARCEL_BOXED := lib/libmal_rilproxy.so
+
 # $(1) path under proprietary/ and /vendor, $(2) path rewrites for
 # blob-path-patch.py (may be empty), $(3) file mode
 define m5c-treble-blob
-$(TARGET_OUT_VENDOR)/$(1): $(LOCAL_PATH)/proprietary/$(1) $(M5C_BLOB_PATCH) $(M5C_ELF_WIRE) $(M5C_ELF_WIRING) $(M5C_PATCHELF)
+$(TARGET_OUT_VENDOR)/$(1): $(LOCAL_PATH)/proprietary/$(1) $(M5C_BLOB_PATCH) $(M5C_ELF_WIRE) $(M5C_ELF_WIRING) $(M5C_PATCHELF) $(M5C_PARCEL_BOX)
 	@mkdir -p $$(dir $$@)
-	$(hide) rm -f $$@.tmp
+	$(hide) rm -f $$@.tmp $$@.unboxed
 	$(hide) $(if $(2),python3 $(M5C_BLOB_PATCH) $$< $$@.tmp $(2),cp $$< $$@.tmp)
+	$(hide) $(if $(filter $(1),$(M5C_PARCEL_BOXED)),mv -f $$@.tmp $$@.unboxed && python3 $(M5C_PARCEL_BOX) --patchelf $(M5C_PATCHELF) $$@.unboxed $$@.tmp && rm -f $$@.unboxed,true)
 	$(hide) $(if $(filter $(1),$(M5C_ELF_WIRED)),python3 $(M5C_ELF_WIRE) apply --patchelf $(M5C_PATCHELF) --wiring $(M5C_ELF_WIRING) $(1) $$@.tmp,true)
 	$(hide) chmod $(3) $$@.tmp
 	$(hide) mv -f $$@.tmp $$@
