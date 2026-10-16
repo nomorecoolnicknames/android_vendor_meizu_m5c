@@ -1,0 +1,16 @@
+// Soong namespace for the m5c vendor tree.
+//
+// There is no Soong module in this tree today (the blobs are installed by
+// PRODUCT_COPY_FILES in the *-vendor*.mk files and the few link-time modules
+// live in Android.mk behind an `ifeq ($(TARGET_DEVICE),m5c)` guard, which
+// kati honours per product).  This file exists so that the guard also holds
+// the day someone adds an Android.bp here: Soong has no TARGET_DEVICE guard,
+// and a bp module in the root namespace gets install rules in EVERY product
+// of this workspace (measured 2026-09-16: 51 such lines from device/meizu/m95
+// inside installs-lineage_m5s.mk).  The landmine is already documented in
+// Android.mk of this tree ("libnvram already defined by vendor/meizu/...").
+//
+// Exported to Make only for products that list vendor/meizu/m5c in
+// PRODUCT_SOONG_NAMESPACES.
+soong_namespace {
+}

@@ -1,0 +1,210 @@
+# treble-elf-wiring.txt — DT_NEEDED edits applied at build time to stock blobs
+# installed on /vendor (vendor/meizu/m5c/Android.mk, rule m5c-treble-blob;
+# the tool and its rules: blob-elf-wire.py).  One line per ELF:
+#   REL [OLD=NEW ...] [+SONAME ...]      (REL = path under proprietary/ and /vendor)
+# GENERATED, do not edit by hand — regenerate and review the diff:
+#   blob-elf-wire.py scan vendor/meizu/m5c/proprietary <every ELF REL on /vendor>
+# The build re-derives each line from the blob and fails if they differ.
+#   +libm5cshim_legacy.so  __xlog_buf_printf (MTK xlog, most MTK ELFs),
+#                          android_memset16 (gralloc), PermissionCache (libpqservice,
+#                          libgui_ext), __pthread_gettid (32-bit libvcodecdrv,
+#                          libMtkOmxVdecEx, libmtkjpeg) — device/meizu/m5c/treble/legacy.cpp
+#   +liblog.so             executables (bin/) only: __android_log_*, N-era binaries got
+#                          it through libcutils, which A13 loads from the VNDK namespace
+#   +libutilscallstack.so  android::CallStack, in libutils until Q; VNDK-SP in 13
+#   +libm5cshim_ssl.so    SSLv3_client/server_method (libcurl for mnld, mtk_agpsd): BoringSSL has none
+#   +libm5cshim_camera.so  N camera API gone from A13: PropertyMap, N GraphicBuffer ctors + lock,
+#                          N BufferQueue/BufferItemConsumer/Surface, N SensorManager ctor, getFd,
+#                          IPermissionController (device/meizu/m5c/treble/camera.cpp)
+#   +libsensor_vendor.so   N SensorManager/SensorEventQueue API of LineageOS hardware/lineage/compat
+#   +libm5cshim_newpad.so  camera.mt6737m / libcam_platform / libMtkOmxVenc only: operator new with slack for the
+#                          Nougat-sized GraphicBuffer/BufferItemConsumer blocks (treble/newpad.cpp)
+#   libui.so=libm5cshim_region.so   Mali only: N-layout android::Region
+#                          (device/meizu/m5c/treble/region.cpp), libui stays out of sphal
+#   libtinycompress.so=libm5cshim_tinycompress.so   audio.primary only: 12 compress_*
+#                          calls, no offload output (device/meizu/m5c/treble/tinycompress.cpp);
+#                          the real name's /vendor path belongs to the AOSP module
+#   libnativehelper.so=libm5cshim_jnihelp.so   libwfo_jni only (VoLTE, ForgeImsService in
+#                          sphal): jniRegisterNativeMethods, the ART apex one is out of reach
+#                          (device/meizu/m5c/treble/jnihelp.cpp)
+# Evidence and counts: the bring-up notes
+bin/6620_launcher +liblog.so
+bin/akmd09911 +liblog.so
+bin/akmd8963 +liblog.so
+bin/akmd8975 +liblog.so
+bin/ami304d +liblog.so
+bin/factory +liblog.so +libm5cshim_legacy.so
+bin/fuelgauged +liblog.so
+bin/gsm0710muxd +liblog.so
+bin/meta_tst +libm5cshim_legacy.so
+bin/msensord +liblog.so
+bin/mtk_agpsd +liblog.so +libm5cshim_ssl.so
+bin/mtkmal +liblog.so
+bin/muxreport +liblog.so
+bin/nvram_daemon +liblog.so
+bin/pq +libm5cshim_legacy.so
+bin/slpd +liblog.so
+bin/thermal_manager +liblog.so
+bin/volte_imcb +liblog.so
+bin/volte_stack +liblog.so
+bin/volte_ua +liblog.so
+bin/wmt_loader +liblog.so
+lib64/egl/libGLES_mali.so libui.so=libm5cshim_region.so +libutilscallstack.so
+lib64/hw/audio.primary.mt6737m.so libtinycompress.so=libm5cshim_tinycompress.so +libm5cshim_legacy.so
+lib64/hw/camera.mt6737m.so +libm5cshim_legacy.so +libm5cshim_newpad.so
+lib64/hw/gralloc.mt6737m.so +libm5cshim_legacy.so +libutilscallstack.so
+lib64/lib3a.so +libm5cshim_legacy.so
+lib64/libacdk.so +libm5cshim_legacy.so
+lib64/libaudiocomponentengine.so +libutilscallstack.so
+lib64/libBnMtkCodec.so +libm5cshim_legacy.so
+lib64/libbwc.so +libm5cshim_legacy.so
+lib64/libcam.common.meizu.so +libm5cshim_camera.so
+lib64/libcam.utils.sensorlistener.so +libm5cshim_camera.so +libsensor_vendor.so
+lib64/libcam1_utils.so +libm5cshim_legacy.so
+lib64/libcam3_app.so +libm5cshim_legacy.so
+lib64/libcam3_hwnode.so +libm5cshim_legacy.so
+lib64/libcam3_hwpipeline.so +libm5cshim_legacy.so
+lib64/libcam3_pipeline.so +libm5cshim_legacy.so
+lib64/libcamalgo.so +libm5cshim_legacy.so
+lib64/libcam.camadapter.so +libm5cshim_legacy.so
+lib64/libcam.campipe.so +libm5cshim_legacy.so
+lib64/libcam.camshot.so +libm5cshim_legacy.so
+lib64/libcam.client.so +libm5cshim_camera.so +libm5cshim_legacy.so
+lib64/libcam.device1.so +libm5cshim_legacy.so
+lib64/libcam.device3.so +libm5cshim_legacy.so
+lib64/libcamdrv.so +libm5cshim_legacy.so
+lib64/libcameracustom.so +libm5cshim_legacy.so
+lib64/libcam.exif.so +libm5cshim_legacy.so
+lib64/libcam.exif.v3.so +libm5cshim_legacy.so
+lib64/libcam.hal3a.v3.dng.so +libm5cshim_legacy.so
+lib64/libcam.hal3a.v3.so +libm5cshim_legacy.so
+lib64/libcam.halsensor.so +libm5cshim_legacy.so
+lib64/libcam.iopipe_FrmB.so +libm5cshim_legacy.so
+lib64/libcam.iopipe.so +libm5cshim_legacy.so
+lib64/libcam.metadataprovider.so +libm5cshim_legacy.so
+lib64/libcam.metadata.so +libm5cshim_legacy.so
+lib64/libcam.paramsmgr.so +libm5cshim_legacy.so
+lib64/libcam_platform.so +libm5cshim_legacy.so +libm5cshim_newpad.so
+lib64/libcam.sdkclient.so +libm5cshim_legacy.so
+lib64/libcam.utils.so +libm5cshim_legacy.so +libutilscallstack.so
+lib64/libcam_utils.so +libm5cshim_camera.so +libm5cshim_legacy.so +libutilscallstack.so
+lib64/libdpframework.so +libm5cshim_legacy.so
+lib64/libem_gpio_jni.so +libm5cshim_legacy.so
+lib64/libem_lte_jni.so +libm5cshim_legacy.so
+lib64/libem_modem_jni.so +libm5cshim_legacy.so
+lib64/libem_sensor_jni.so +libm5cshim_legacy.so
+lib64/libem_support_jni.so +libm5cshim_legacy.so
+lib64/libem_usb_jni.so +libm5cshim_legacy.so
+lib64/libem_wifi_jni.so +libm5cshim_legacy.so
+lib64/libfeatureiodrv.so +libm5cshim_legacy.so
+lib64/libfeatureio.so +libm5cshim_legacy.so
+lib64/libfilterfw.so +libm5cshim_camera.so
+lib64/libfmcust.so +libm5cshim_legacy.so
+lib64/libgui_ext.so +libm5cshim_camera.so +libm5cshim_legacy.so
+lib64/libhdrproc.so +libm5cshim_legacy.so
+lib64/libimageio_FrmB.so +libm5cshim_legacy.so
+lib64/libimageio_plat_drv_FrmB.so +libm5cshim_legacy.so
+lib64/libimageio_plat_drv.so +libm5cshim_legacy.so
+lib64/libimageio.so +libm5cshim_legacy.so
+lib64/libJpgDecPipe.so +libm5cshim_legacy.so
+lib64/libJpgEncPipe.so +libm5cshim_legacy.so
+lib64/libmdloggerrecycle.so +libm5cshim_legacy.so
+lib64/libmmsdkservice.feature.so +libm5cshim_camera.so
+lib64/libmmsdkservice.so +libm5cshim_legacy.so
+lib64/libmtk_mmutils.so +libm5cshim_camera.so
+lib64/libMtkOmxCore.so +libm5cshim_legacy.so
+lib64/libpq_prot.so +libm5cshim_legacy.so
+lib64/libpqservice.so +libm5cshim_legacy.so
+lib64/libSwJpgCodec.so +libm5cshim_legacy.so
+lib64/libui_ext.so +libm5cshim_camera.so +libm5cshim_legacy.so
+lib64/libvfb_render.so +libm5cshim_camera.so
+lib64/libvmp_render.so +libm5cshim_camera.so
+lib64/libwfo_jni.so libnativehelper.so=libm5cshim_jnihelp.so
+lib/egl/libGLES_mali.so libui.so=libm5cshim_region.so +libutilscallstack.so
+lib/hw/audio.primary.mt6737m.so libtinycompress.so=libm5cshim_tinycompress.so +libm5cshim_legacy.so
+lib/hw/camera.mt6737m.so +libm5cshim_legacy.so +libm5cshim_newpad.so
+lib/hw/gralloc.mt6737m.so +libm5cshim_legacy.so +libutilscallstack.so
+lib/lib3a.so +libm5cshim_legacy.so
+lib/libacdk.so +libm5cshim_legacy.so
+lib/libaudiocomponentengine.so +libutilscallstack.so
+lib/libaudiomtkdcremoval.so +libm5cshim_legacy.so
+lib/libBnMtkCodec.so +libm5cshim_legacy.so
+lib/libbwc.so +libm5cshim_legacy.so
+lib/libcam.common.meizu.so +libm5cshim_camera.so
+lib/libcam.utils.sensorlistener.so +libm5cshim_camera.so +libsensor_vendor.so
+lib/libcam1_utils.so +libm5cshim_legacy.so
+lib/libcam3_app.so +libm5cshim_legacy.so
+lib/libcam3_hwnode.so +libm5cshim_legacy.so
+lib/libcam3_hwpipeline.so +libm5cshim_legacy.so
+lib/libcam3_pipeline.so +libm5cshim_legacy.so
+lib/libcamalgo.so +libm5cshim_legacy.so
+lib/libcam.camadapter.so +libm5cshim_legacy.so
+lib/libcam.campipe.so +libm5cshim_legacy.so
+lib/libcam.camshot.so +libm5cshim_legacy.so
+lib/libcam.client.so +libm5cshim_camera.so +libm5cshim_legacy.so
+lib/libcam.device1.so +libm5cshim_legacy.so
+lib/libcam.device3.so +libm5cshim_legacy.so
+lib/libcamdrv.so +libm5cshim_legacy.so
+lib/libcameracustom.so +libm5cshim_legacy.so
+lib/libcam.exif.so +libm5cshim_legacy.so
+lib/libcam.exif.v3.so +libm5cshim_legacy.so
+lib/libcam.hal3a.v3.dng.so +libm5cshim_legacy.so
+lib/libcam.hal3a.v3.so +libm5cshim_legacy.so
+lib/libcam.halsensor.so +libm5cshim_legacy.so
+lib/libcam.iopipe_FrmB.so +libm5cshim_legacy.so
+lib/libcam.iopipe.so +libm5cshim_legacy.so
+lib/libcam.metadataprovider.so +libm5cshim_legacy.so
+lib/libcam.metadata.so +libm5cshim_legacy.so
+lib/libcam.paramsmgr.so +libm5cshim_legacy.so
+lib/libcam_platform.so +libm5cshim_legacy.so +libm5cshim_newpad.so
+lib/libcam.sdkclient.so +libm5cshim_legacy.so
+lib/libcam.utils.so +libm5cshim_legacy.so +libutilscallstack.so
+lib/libcam_utils.so +libm5cshim_camera.so +libm5cshim_legacy.so +libutilscallstack.so
+lib/libcurl.so +libm5cshim_ssl.so
+lib/libdpframework.so +libm5cshim_legacy.so
+lib/libem_gpio_jni.so +libm5cshim_legacy.so
+lib/libem_lte_jni.so +libm5cshim_legacy.so
+lib/libem_modem_jni.so +libm5cshim_legacy.so
+lib/libem_sensor_jni.so +libm5cshim_legacy.so
+lib/libem_support_jni.so +libm5cshim_legacy.so
+lib/libem_usb_jni.so +libm5cshim_legacy.so
+lib/libem_wifi_jni.so +libm5cshim_legacy.so
+lib/libfeatureiodrv.so +libm5cshim_legacy.so
+lib/libfeatureio.so +libm5cshim_legacy.so
+lib/libfilterfw.so +libm5cshim_camera.so
+lib/libfmcust.so +libm5cshim_legacy.so
+lib/libgui_ext.so +libm5cshim_camera.so +libm5cshim_legacy.so
+lib/libh264enc_sb.ca7.so +libm5cshim_legacy.so
+lib/libhdrproc.so +libm5cshim_legacy.so
+lib/libimageio_FrmB.so +libm5cshim_legacy.so
+lib/libimageio_plat_drv_FrmB.so +libm5cshim_legacy.so
+lib/libimageio_plat_drv.so +libm5cshim_legacy.so
+lib/libimageio.so +libm5cshim_legacy.so
+lib/libJpgDecPipe.so +libm5cshim_legacy.so
+lib/libJpgEncPipe.so +libm5cshim_legacy.so
+lib/libmdloggerrecycle.so +libm5cshim_legacy.so
+lib/libmemoryDumpEncoder.so +libm5cshim_legacy.so
+lib/libmmsdkservice.feature.so +libm5cshim_camera.so
+lib/libmmsdkservice.so +libm5cshim_legacy.so
+lib/libmtk_mmutils.so +libm5cshim_camera.so
+lib/libmtkjpeg.so +libm5cshim_legacy.so
+lib/libMtkOmxAdpcmDec.so +libm5cshim_legacy.so
+lib/libMtkOmxAdpcmEnc.so +libm5cshim_legacy.so
+lib/libMtkOmxAlacDec.so +libm5cshim_legacy.so
+lib/libMtkOmxApeDec.so +libm5cshim_legacy.so
+lib/libMtkOmxCore.so +libm5cshim_legacy.so
+lib/libMtkOmxFlacDec.so +libm5cshim_legacy.so
+lib/libMtkOmxG711Dec.so +libm5cshim_legacy.so
+lib/libMtkOmxGsmDec.so +libm5cshim_legacy.so
+lib/libMtkOmxMp3Dec.so +libm5cshim_legacy.so
+lib/libMtkOmxRawDec.so +libm5cshim_legacy.so
+lib/libMtkOmxVdecEx.so +libm5cshim_camera.so +libm5cshim_legacy.so
+lib/libMtkOmxVenc.so +libm5cshim_camera.so +libm5cshim_legacy.so +libm5cshim_newpad.so
+lib/libMtkOmxVorbisEnc.so +libm5cshim_legacy.so
+lib/libpq_prot.so +libm5cshim_legacy.so
+lib/libpqservice.so +libm5cshim_legacy.so
+lib/libSwJpgCodec.so +libm5cshim_legacy.so
+lib/libui_ext.so +libm5cshim_camera.so +libm5cshim_legacy.so
+lib/libvcodecdrv.so +libm5cshim_legacy.so
+lib/libvfb_render.so +libm5cshim_camera.so
+lib/libvmp_render.so +libm5cshim_camera.so

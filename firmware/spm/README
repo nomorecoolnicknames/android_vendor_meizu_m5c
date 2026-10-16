@@ -1,0 +1,27 @@
+SPM PCM code for the MT6735M (Meizu M5c), for the forge 4.9 kernel (m5c-4.9-a13).
+
+Not proprietary blobs: generated from the GPL C arrays of the m5c 3.18 kernel
+(commit 55c14fdc; drivers/misc/mediatek/base/power/spm_v1/
+mt_spm_{sleep,sodi,dpidle}.c, block CONFIG_ARCH_MT6735M, and
+mt6735/mt_spm_vcore_dvfs_2.c) by a small converter script (pcm2bin.py, not part
+of this tree).
+
+Why: the 4.9 kernel loads the MT6735M SPM code only from these four files
+(request_firmware on open of /dev/spm, spm_v1/mt_spm.c:82-119, 618-697) and
+refuses to suspend until all four are loaded ("SPM FIRMWARE IS NOT READY",
+mt6735/mt_sleep.c:275).  Stock Flyme 6.0.2.4G keeps the same code inside its
+3.18 kernel and ships no pcm files.  File format: mt_spm.c:660-685.
+
+Match with the 4.9 driver (checked 2026-09-29): pcm_vcore_dvfs_2.bin is word
+for word the array 4.9 still embeds (mt6735/mt_spm_vcore_dvfs_2.c,
+v0.5.8_20150904); the pwr_ctrl tables and SPM flags that drive the suspend,
+SODI and deep-idle code are identical between the 3.18 and 4.9 sources; 4.9
+uses the version string only for logging.  The stock kernel carries newer
+suspend/sodi/deepidle builds (v..._20160311) - the fallback if these
+misbehave.
+
+The .bin files are tracked (added with -f past vendor/.gitignore's *.bin,
+2026-09-29): a clean checkout must not build a vendor image without them.
+To recreate them, run pcm2bin.py over drivers/misc/mediatek/base/power of that
+kernel tree with vendor/meizu/m5c/firmware/spm as the output directory and
+compare with SHA256SUMS.
